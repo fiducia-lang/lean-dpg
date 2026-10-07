@@ -1,0 +1,11 @@
+name = "dpg"
+version = "0.1.0"
+defaultTargets = ["DepGraph", "dpg"]
+
+[[lean_lib]]
+name = "DepGraph"
+
+[[lean_exe]]
+name = "dpg"
+root = "Main"
+supportInterpreter = true
