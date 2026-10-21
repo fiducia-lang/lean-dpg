@@ -105,7 +105,8 @@ private def generatedSuffixes : List String :=
 private def isGeneratedComponent (s : String) : Bool :=
   s.startsWith "match_" || s.startsWith "proof_" || s.startsWith "eq_" || s.startsWith "_"
   || s.startsWith "spec" && s.length > 4 && (s.drop 4).all Char.isDigit
-  || s == "eq_def" || s == "induct" || s == "mutual_induct"
+  || s == "eq_def" || s == "eq_unfold" || s == "induct" || s == "mutual_induct"
+  || s == "congr_simp" || s == "fun_cases"
   || generatedSuffixes.contains s
 
 /-- Is `n` a declaration the user wrote (as opposed to one the compiler generated)? -/
