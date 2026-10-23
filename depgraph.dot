@@ -1,0 +1,6 @@
+digraph "DepGraph.Core" {
+  rankdir=BT;
+  node [fontname="Helvetica", fontsize=10, style=filled];
+  edge [color="#777777", arrowsize=0.6];
+  "DepGraph.Core" [shape=component, fillcolor="#cfe3f7", peripheries=2, tooltip="module @ DepGraph.Core:0, used by 0"];
+}

@@ -165,11 +165,10 @@ def extract (cfg : Config) : MetaM Graph := do
         owner := owner.insert n r
         if r == n then
           let isProp ← try Meta.isProp ci.type catch _ => pure false
-          let line := match ← findDeclarationRanges? n with
-            | some r => r.range.pos.line
-            | none   => 0
-          let module := env.header.moduleNames[env.getModuleIdxFor? n |>.get!]!
-          nodes := nodes.push { name := n, kind := kindOf ci, isProp, module, line }
+          -- a declaration with no source position was generated (e.g. by `deriving`), not written
+          if let some r ← findDeclarationRanges? n then
+            let module := env.header.moduleNames[env.getModuleIdxFor? n |>.get!]!
+            nodes := nodes.push { name := n, kind := kindOf ci, isProp, module, line := r.range.pos.line }
   let sortedNodes := nodes.qsort (fun a b => a.line < b.line || (a.line == b.line && Name.lt a.name b.name))
   let nodeSet : Std.HashSet Name := Std.HashSet.ofList (sortedNodes.map (·.name)).toList
   -- 2. edges: for each user decl, union the constants used by it and by all auxiliaries it owns

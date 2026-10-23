@@ -10,6 +10,7 @@
 #depgraph Parser.Parser2 into "first.dot"      -- choose the output file
 #depgraph Parser.Parser2 unused                -- also list unused declarations
 #depgraph A.B, C.D to foo                      -- several modules, comma separated
+#depgraph Parser.Parser2 metrics "metrics.csv" -- also write per-declaration complexity metrics
 #depgraph Parser.Parser2 level namespace       -- collapse declarations onto namespaces
 #depgraph Parser.Parser2 level module          -- the import graph within the `Parser` package
 #depgraph Parser.Parser2 level module include_deps exclude Init, Lean, Std, Lake, Mathlib
@@ -22,6 +23,7 @@ The file is written relative to the working directory of the Lean process (the p
 when run under `lake`).
 -/
 import DepGraph.Core
+import DepGraph.Metrics
 open Lean Elab Command Meta
 
 namespace DepGraph
@@ -37,8 +39,9 @@ syntax depLevel := &"level" (&"decl" <|> "namespace" <|> "module")
 syntax depOnly   := "only" ident,*
 syntax depAllDeps := &"include_deps"
 syntax depExclude := &"exclude" ident,+
+syntax depMetrics := &"metrics" str
 syntax depOpt := depTo <|> depFrom <|> depInto <|> depProps <|> depKeep <|> depInst <|> depUnused
-  <|> depLevel <|> depOnly <|> depAllDeps <|> depExclude
+  <|> depLevel <|> depOnly <|> depAllDeps <|> depExclude <|> depMetrics
 
 syntax (name := depgraphCmd) "#depgraph " ident,+ depOpt* : command
 
@@ -47,6 +50,7 @@ syntax (name := depgraphCmd) "#depgraph " ident,+ depOpt* : command
   let mut cfg : Config := { modules := mods }
   let mut file := "depgraph.dot"
   let mut listUnused := false
+  let mut metricsFile : Option String := none
   for o in stx[2].getArgs do
     match o[0] with
     | `(depTo| to $d:ident)     => cfg := { cfg with toDecl := some (← liftCoreM <| realizeGlobalConstNoOverloadWithInfo d) }
@@ -62,6 +66,7 @@ syntax (name := depgraphCmd) "#depgraph " ident,+ depOpt* : command
     | `(depOnly| only $ms:ident,*)    => cfg := { cfg with onlyPrefixes := some (ms.getElems.map (·.getId)) }
     | `(depAllDeps| include_deps)     => cfg := { cfg with onlyPrefixes := some #[] }
     | `(depExclude| exclude $ms:ident,*) => cfg := { cfg with excludePrefixes := ms.getElems.map (·.getId) }
+    | `(depMetrics| metrics $f:str)   => metricsFile := some f.getString
     | _ => throwErrorAt o "unknown #depgraph option"
   let g ← liftTermElabM <| build cfg
   IO.FS.writeFile file (g.toDot (title := String.intercalate "," (mods.map (·.toString)).toList))
@@ -69,6 +74,12 @@ syntax (name := depgraphCmd) "#depgraph " ident,+ depOpt* : command
   if listUnused then
     for n in g.unused do
       msg := msg ++ m!"\n  unused: {n.name} ({n.kind}, line {n.line})"
+  if let some f := metricsFile then
+    let ms ← liftTermElabM <| metrics cfg
+    IO.FS.writeFile f (metricsCsv ms)
+    msg := msg ++ m!"\nwrote metrics for {ms.size} declarations to {f}"
+    for m in topBy ms (·.termSize) 5 do
+      msg := msg ++ m!"\n  {m.name}: lines {m.lines}, term size {m.termSize}, cyclomatic {m.cyclomatic}"
   logInfo msg
 
 end DepGraph
